@@ -17,10 +17,8 @@ import traceback
 # time.sleep(random_time)
 
 # 获取当前目录
-# current_dir = os.path.dirname(__file__)
 current_dir = os.getcwd()
-print("当前目录1", current_dir, os.getcwd())
-from dns.qCloud import QcloudApiv3 # QcloudApiv3 DNSPod 的 API 更新了 By github@z0z0r4
+from dns.qCloud import QcloudApiv3
 from dns.aliyun import AliApi
 from dns.huawei import HuaWeiApi
 from log import Logger
