@@ -2,17 +2,24 @@
 # -*- coding: utf-8 -*-
 # Mail: tongdongdong@outlook.com
 
-import sys,os,json,requests,time,base64,shutil,random,traceback
+import json
+import os
+import random
+import requests
+import sys
+import time
+import traceback
 
 # 生成随机时间，范围在10到150之间
-random_time = random.uniform(10, 100)
-print("本次将等待{}秒执行".format(random_time))
+# random_time = random.uniform(1, 5)
+# print("本次将等待{}秒执行".format(random_time))
 # 延迟执行随机时间
-time.sleep(random_time)
+# time.sleep(random_time)
 
 # 获取当前目录
-current_dir = os.path.dirname(__file__)
-
+# current_dir = os.path.dirname(__file__)
+current_dir = os.getcwd()
+print("当前目录1", current_dir, os.getcwd())
 from dns.qCloud import QcloudApiv3 # QcloudApiv3 DNSPod 的 API 更新了 By github@z0z0r4
 from dns.aliyun import AliApi
 from dns.huawei import HuaWeiApi
@@ -43,21 +50,24 @@ def readFile(filename,mode = 'r'):
         if fp and not fp.closed:
             fp.close()
     return f_body
-    
+
 config =  json.loads(readFile('{}/config.json'.format(current_dir)))
+provider_data = json.loads(readFile('{}/provider.json'.format(current_dir)))
+print("配置信息", config, provider_data)
 #CM:移动 CU:联通 CT:电信  AB:境外 DEF:默认
 #修改需要更改的dnspod域名和子域名
 DOMAINS = json.loads(readFile('{}/domains.json'.format(current_dir)))
-#获取服务商信息
-provider_data = json.loads(readFile('{}/provider.json'.format(current_dir)))
+print('域名信息', DOMAINS)
 log_cf2dns = Logger('{}/cf2dns.log'.format(current_dir), level='debug') 
 
 def get_optimization_ip():
     try:
         headers = {'Content-Type': 'application/json'}
         data = {"key": config["key"], "type":iptype, "cdn_server": config["cdn_server"]}
+        # print('服务提供商', provider_data)
         provider = [item for item in provider_data if item['id'] == config["data_server"]][0]
         response = requests.post(provider['get_ip_url'], json=data, headers=headers)
+        # print("响应结果", response.json())
         if response.status_code == 200:
             return response.json()
         else:
@@ -111,6 +121,7 @@ def changeDNS(line, s_info, c_info, domain, sub_domain, cloud):
                 if cf_ip in str(s_info):
                     create_num += 1
                     continue
+                print('更新DNS', sub_domain, cf_ip, recordType, line, config['ttl'])
                 ret = cloud.change_record(domain, info["recordId"], sub_domain, cf_ip, recordType, line, config["ttl"])
                 if(config["dns_server"] != 1 or ret["code"] == 0):
                     log_cf2dns.logger.info("CHANGE DNS SUCCESS: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----DOMAIN: " + domain + "----SUBDOMAIN: " + sub_domain + "----RECORDLINE: "+line+"----RECORDID: " + str(info["recordId"]) + "----VALUE: " + cf_ip )
@@ -122,13 +133,16 @@ def changeDNS(line, s_info, c_info, domain, sub_domain, cloud):
 
 def main(cloud):
     global config
+    print('全局配置', config)
     if iptype == 'v6':
         recordType = "AAAA"
     else:
         recordType = "A"
+    print('域名', DOMAINS)
     if len(DOMAINS) > 0:
         try:
             cfips = get_optimization_ip()
+            print('优选IP', cfips)
             if cfips == None or cfips["code"] != 200:
                 log_cf2dns.logger.error("GET CLOUDFLARE IP ERROR: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----MESSAGE: " + str(cfips["info"]))
                 return
@@ -189,18 +203,23 @@ def main(cloud):
         except Exception as e:
             traceback.print_exc()  
             log_cf2dns.logger.error("CHANGE DNS ERROR: ----Time: " + str(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())) + "----MESSAGE: " + str(e))
-           
+
 
 if __name__ == '__main__':
+    cloud = None
     if config["dns_server"] == 1:
+        print('腾讯云')
         cloud = QcloudApiv3(config["secretid"], config["secretkey"])
+        print('初始化完成')
     elif config["dns_server"] == 2:
         cloud = AliApi(config["secretid"], config["secretkey"], config["region_ali"])
     elif config["dns_server"] == 3:
         cloud = HuaWeiApi(config["secretid"], config["secretkey"], config["region_hw"])
-    if config["ipv4"] == "on":
+    if config["ipv4"]:
         iptype = "v4"
+        print('v4')
         main(cloud)
-    if config["ipv6"] == "on":
+    if config["ipv6"]:
         iptype = "v6"
+        print('v6')
         main(cloud)

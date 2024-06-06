@@ -1,0 +1,8 @@
+services:
+  cf2dns:
+    container_name: cf2dns
+    build: .
+    image: cf2dns
+    restart: always
+    volumes:
+      - ./data:/data

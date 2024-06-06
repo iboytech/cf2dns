@@ -52,6 +52,7 @@ class QcloudApiv3():
 
 
             resp = client.DescribeRecordList(req_model)
+            print('响应结果', resp)
             resp = json.loads(resp.to_json_string())
             temp_resp = {}
             temp_resp["code"] = 0
